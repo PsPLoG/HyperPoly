@@ -1,418 +1,323 @@
-# HyperPoly 업데이트 가이드
+# USB 패치 업데이트 파일 생성 가이드
 
-이 문서는 기존 업데이트 구현에서 공통 원칙을 추출해, 새 펌웨어와 모듈을 안전하게 배포하기 위한 일반 절차를 정리한다. 특정 릴리스 번호, 과거 패치 파일명, 이전 하드웨어 분기값은 다루지 않는다.
+이 문서는 HyperPoly 임베디드 기기에 USB로 전달할 **패치 업데이트 파일(`.deb`)**을 만드는 방법을 설명한다.
 
-> **주의:** 전체 이미지 업데이트는 시스템 블록 장치에 직접 기록할 수 있다. 대상 장치 검증, 데이터 백업, 무결성 확인과 복구 수단 준비 없이 실행하지 않는다.
-
-## 1. 업데이트 유형 선택
-
-변경 범위에 따라 업데이트 방식을 선택한다.
-
-### 패키지 업데이트
-
-다음과 같은 변경에 적합하다.
-
-- UI, 서비스, 설정 파일 수정
-- 소수의 실행 파일 또는 라이브러리 교체
-- LV2 모듈 추가·수정
-- 기존 파일시스템과 부트 구조를 유지할 수 있는 변경
-
-Debian 패키지로 배포하고, overlay의 임시 계층이 아니라 영구 루트 안에서 설치한다.
+기기의 업데이트 UI는 USB가 `/usb_flash`에 마운트된 상태에서 루트의 `.deb` 파일을 찾아 다음 방식으로 설치한다.
 
 ```bash
-sudo overlayroot-chroot /bin/bash
-
-dpkg -i /path/to/packages/*.deb
-sync
+sudo /usr/bin/polyoverlayroot-chroot \
+  dpkg -i -E -G /usb_flash/*.deb \
+  && sync \
+  && sudo shutdown -h now
 ```
 
-제품 환경에서 별도 wrapper가 제공되면 해당 wrapper를 사용한다.
+따라서 일반적인 코드·UI·LV2 변경은 전체 이미지를 만드는 것이 아니라, 변경 파일을 실제 설치 경로대로 담은 Debian 패키지를 생성해 USB 루트에 복사하면 된다.
 
-### 파일 번들 업데이트
+## 1. 패치에 포함할 파일 정하기
 
-여러 파일을 정해진 경로에 일괄 배포해야 하지만 전체 이미지를 교체할 필요가 없을 때 사용한다.
-
-권장 조건:
-
-- 대상 펌웨어 버전을 사전 검사한다.
-- 아카이브 체크섬을 검증한다.
-- 임시 디렉터리에 먼저 해제한다.
-- 필요한 파일을 백업한 뒤 교체한다.
-- 실패 시 복구할 수 있도록 원본을 보존한다.
-- 배포 후 `sync`하고 서비스를 재시작하거나 장치를 재부팅한다.
-
-루트에 아카이브를 직접 푸는 방식은 원자적이지 않으므로 가능하면 패키지나 staging 디렉터리를 사용한다.
-
-### 전체 이미지 업데이트
-
-다음과 같은 경우에만 사용한다.
-
-- 루트 파일시스템 형식 변경
-- 파티션 구조 변경
-- 커널, initramfs 또는 부트 구조의 대규모 변경
-- 기존 설치 위에서 안전하게 마이그레이션하기 어려운 경우
-
-전체 이미지 업데이트는 initramfs 또는 별도 복구 환경에서 수행한다. 실행 중인 루트 파일시스템을 그대로 덮어쓰지 않는다.
-
-## 2. 공통 업데이트 구조
-
-안전한 업데이트는 다음 단계로 구성한다.
-
-1. **사전 검사**
-   - 현재 펌웨어와 하드웨어 revision 확인
-   - 지원되는 최소·최대 버전 확인
-   - 저장 공간과 전원 상태 확인
-   - USB 또는 업데이트 매체 확인
-   - 파일 존재 여부와 체크섬 검증
-
-2. **사용자 데이터 보존**
-   - `/pedal_state`
-   - 프리셋과 사용자 생성 파일
-   - 하드웨어 식별 정보
-   - 필요한 설정과 라이선스 파일
-
-3. **서비스 정지**
-   - UI
-   - Ingen 또는 LV2 호스트
-   - 오디오 서비스
-   - 업데이트와 충돌할 수 있는 기타 프로세스
-
-4. **영구 루트 준비**
-   - overlay 사용 여부 확인
-   - 필요한 `/dev`, 업데이트 매체와 부트 파티션 bind mount
-   - `overlayroot-chroot`로 lower root에 진입
-
-5. **업데이트 실행**
-   - 패키지 설치, 파일 교체 또는 이미지 기록
-   - 진행률과 로그 기록
-   - 각 단계의 종료 코드를 확인
-
-6. **부트 산출물 갱신**
-   - 필요 시 initramfs 재생성
-   - 부트 스크립트 또는 부트로더 산출물 갱신
-   - 커널과 DTB의 호환성 확인
-
-7. **동기화와 재부팅**
-   - `sync` 수행
-   - 기록 완료 전 전원 차단 방지
-   - 정상 종료 또는 재부팅
-
-8. **업데이트 후 검증**
-   - 부팅 성공
-   - UI 및 오디오 서비스 정상 동작
-   - 프리셋과 사용자 데이터 보존
-   - 하드웨어 입력, 화면, 터치와 오디오 입출력 확인
-   - 새 버전과 로그 확인
-
-## 3. Overlay 환경에서 영구 변경하기
-
-장치는 기본적으로 읽기 전용 lower root와 쓰기 가능한 overlay를 사용할 수 있다. 일반 셸에서 변경하면 재부팅 후 사라질 수 있다.
-
-영구 변경은 다음과 같이 수행한다.
+먼저 기준 버전과 새 버전 사이의 변경 파일을 확인한다.
 
 ```bash
-sudo overlayroot-chroot /bin/bash
+git diff --name-status <BASE_TAG_OR_COMMIT>..<NEW_TAG_OR_COMMIT>
 ```
 
-작업 전 확인:
+패키지에는 소스 경로가 아니라 **기기에서의 최종 설치 경로**를 기준으로 파일을 배치한다.
+
+대표적인 매핑 예시는 다음과 같다.
+
+| 저장소 파일 | 패키지 내부 설치 경로 |
+| --- | --- |
+| `digit_ui/...` | `/home/debian/UI/...` |
+| UI 모듈 캐시 | `/home/debian/UI/qml/module_info.js` |
+| LV2 bundle | 기기에서 사용하는 `/usr/lib/lv2/<name>.lv2/...` |
+| 실행 파일 | 기존 설치 위치인 `/usr/bin/...` 또는 `/usr/lib/...` |
+| 설정·서비스 파일 | 기존 기기에서 사용 중인 `/etc/...` 또는 systemd 경로 |
+
+기존 파일의 실제 경로와 권한은 패키지를 만들기 전에 기기에서 확인한다.
 
 ```bash
-mount | grep overlay
-findmnt /
+readlink -f /path/to/file
+stat /path/to/file
+file /path/to/binary
 ```
 
-업데이트 스크립트가 chroot 안에서 USB나 장치 파일에 접근해야 하면 필요한 경로를 bind mount한다.
+핵심 패키지들은 `apt`가 아니라 소스에서 빌드해 `--prefix=/usr`로 설치된 경우가 많다. 빌드 산출물을 넣을 때 기존 설치 위치와 ABI를 그대로 유지한다.
 
-```bash
-mount --rbind /dev /path/to/lower/dev
-mount --rbind /usb_flash /path/to/lower/usb_flash
-```
+## 2. 패키지 작업 디렉터리 만들기
 
-실제 lower root 경로는 현재 부팅 구성에 따라 확인해야 하며 하드코딩하지 않는 것이 좋다.
-
-## 4. 패키지 업데이트 가이드
-
-### 패키지 생성 원칙
-
-- 설치 경로를 명확히 한다.
-- 변경 파일과 삭제 파일을 패키지에 포함한다.
-- 의존성과 충돌 관계를 선언한다.
-- 서비스 재시작이 필요하면 maintainer script에서 신중히 처리한다.
-- 설치 전후 스크립트는 여러 번 실행되어도 안전하도록 작성한다.
-- 실패 시 일부 파일만 교체된 상태를 최소화한다.
-
-### 설치 절차
-
-```bash
-sudo overlayroot-chroot /bin/bash
-
-dpkg -i -E -G /usb_flash/*.deb
-sync
-```
-
-설치 후 다음을 확인한다.
-
-```bash
-dpkg --audit
-systemctl --failed
-```
-
-`apt` 사용은 가능하지만 임베디드 시스템의 핵심 구성요소가 소스 빌드 후 `/usr`에 직접 설치되었을 수 있다.
-
-- 전체 `apt upgrade`를 피한다.
-- 오디오, LV2, Ingen, Qt와 시스템 라이브러리 ABI를 확인한다.
-- 배포판 패키지가 기존 수동 설치 파일을 덮어쓰지 않는지 확인한다.
-- 변경 전 설치 파일과 버전을 기록한다.
-
-## 5. 전체 이미지 업데이트 가이드
-
-### 업데이트 이미지 준비
-
-배포물에는 최소한 다음 정보를 포함한다.
+예를 들어 버전 `1.2.3` 패치를 다음과 같이 준비한다.
 
 ```text
-manifest.json
-checksums.txt
-system-image.img.gz 또는 분할 이미지
-update launcher
-진행 표시와 복구에 필요한 최소 실행 파일
-필요한 DTB 또는 하드웨어별 파일
+update/work/hyperpoly-patch-1.2.3/
+├── DEBIAN/
+│   ├── control
+│   └── postinst          # 필요한 경우만
+├── home/
+│   └── debian/
+│       └── UI/
+│           └── ...
+└── usr/
+    └── lib/
+        └── lv2/
+            └── ...
 ```
 
-manifest에는 다음 항목을 권장한다.
+`DEBIAN` 바깥의 디렉터리는 기기의 `/` 아래에 그대로 설치된다. 예를 들어 다음 파일은:
 
-- 릴리스 버전
-- 지원 제품과 하드웨어 revision
-- 최소·최대 시작 펌웨어
-- 이미지 압축 해제 크기
-- 대상 장치 또는 안전한 장치 탐지 규칙
-- 각 파일의 SHA-256
-- 업데이트 후 기대되는 파티션과 파일시스템
-
-### initramfs 업데이트 환경
-
-전체 이미지는 루트 마운트 전에 기록하는 것이 안전하다. initramfs에 다음을 포함한다.
-
-- USB 및 저장 장치 드라이버
-- 압축 해제 도구
-- `mount`, `cat`, `dd` 또는 동등한 기록 도구
-- 진행률 표시 도구
-- 로그 저장 도구
-- 화면, 입력 장치와 전원 관리에 필요한 커널 모듈
-
-### 장치 탐지
-
-대상 장치를 이름만으로 가정하지 않는다.
-
-권장 검사:
-
-```bash
-lsblk -o NAME,PATH,SIZE,MODEL,TYPE,MOUNTPOINTS
-blkid
-findmnt /
+```text
+update/work/hyperpoly-patch-1.2.3/home/debian/UI/show_widget.py
 ```
 
-대상 장치는 크기, 모델, 부트 매체와 현재 루트의 parent device를 함께 확인해 결정한다. 업데이트 USB가 대상 장치로 선택되지 않도록 명시적으로 제외한다.
+기기에서 다음 위치에 설치된다.
 
-### 이미지 기록
-
-개념적인 흐름은 다음과 같다.
-
-```bash
-verify_checksum image.gz
-uncompress image.gz | write_to_verified_target
-sync
+```text
+/home/debian/UI/show_widget.py
 ```
 
-분할 이미지라면 조각 목록과 순서를 manifest에서 검증한 뒤 결합한다. 하드코딩된 예상 크기 대신 manifest의 압축 해제 크기와 실제 기록량을 비교한다.
-
-### 부트 복구
-
-이미지 기록 후 다음을 검증한다.
-
-- 부트 파티션 존재
-- 커널과 initramfs 존재
-- 부트 스크립트 또는 부트로더 설정 유효
-- 루트 파일시스템 UUID와 부트 인수 일치
-- 하드웨어에 맞는 DTB 설치
-- 사용자 상태 복원 경로 존재
-
-가능하면 A/B 파티션, Btrfs snapshot 또는 별도 복구 파티션을 사용한다.
-
-## 6. 하드웨어별 파일 처리
-
-DTB나 패널 설정은 릴리스 번호가 아니라 하드웨어 식별 정보에 따라 선택한다.
-
-권장 방식:
-
-1. 제조 시 기록된 hardware revision을 읽는다.
-2. manifest에서 revision과 대상 파일의 매핑을 찾는다.
-3. 정확히 하나의 파일이 선택되는지 확인한다.
-4. 기존 파일을 백업한다.
-5. 새 파일을 설치하고 체크섬을 확인한다.
-6. 적용 완료 상태를 버전과 함께 기록한다.
-
-범위 조건이 겹치는 연속 `if` 문보다 명시적인 매핑 테이블이나 `case` 문을 사용한다.
+작업 디렉터리를 생성한다.
 
 ```bash
-case "$HARDWARE_REVISION" in
-  revision_a) dtb="panel-a.dtb" ;;
-  revision_b) dtb="panel-b.dtb" ;;
-  *) echo "Unsupported hardware revision" >&2; exit 1 ;;
+VERSION=1.2.3
+PKGROOT="update/work/hyperpoly-patch-${VERSION}"
+
+rm -rf "$PKGROOT"
+mkdir -p "$PKGROOT/DEBIAN"
+```
+
+## 3. 변경 파일 복사하기
+
+`install`을 사용하면 파일 모드를 명시적으로 지정할 수 있다.
+
+```bash
+install -Dm644 digit_ui/show_widget.py \
+  "$PKGROOT/home/debian/UI/show_widget.py"
+
+install -Dm644 digit_ui/qml/SomeWidget.qml \
+  "$PKGROOT/home/debian/UI/qml/SomeWidget.qml"
+```
+
+실행 파일은 실행 권한을 유지한다.
+
+```bash
+install -Dm755 build/my_binary \
+  "$PKGROOT/usr/bin/my_binary"
+```
+
+디렉터리 전체, 심볼릭 링크 또는 LV2 bundle을 복사할 때는 속성을 보존한다.
+
+```bash
+mkdir -p "$PKGROOT/usr/lib/lv2"
+cp -a build/my_module.lv2 "$PKGROOT/usr/lib/lv2/"
+```
+
+패키지 내부에 빌드 캐시, 테스트 파일, `.git`, 오브젝트 파일 등 런타임에 필요하지 않은 파일이 들어가지 않도록 확인한다.
+
+## 4. `DEBIAN/control` 작성하기
+
+아키텍처는 대상 기기에서 확인한다.
+
+```bash
+dpkg --print-architecture
+```
+
+컴파일된 바이너리가 없는 UI·설정 전용 패치는 `Architecture: all`을 사용할 수 있다. 대상용 바이너리나 LV2 `.so`가 포함되면 기기 아키텍처를 지정한다.
+
+`update/work/hyperpoly-patch-1.2.3/DEBIAN/control` 예시:
+
+```debcontrol
+Package: hyperpoly-patch
+Version: 1.2.3
+Section: misc
+Priority: optional
+Architecture: arm64
+Maintainer: HyperPoly Maintainers
+Description: HyperPoly USB patch update 1.2.3
+```
+
+필요하면 시작 펌웨어를 패키지 의존성이나 `preinst` 검사로 제한한다. 서로 강하게 연관된 변경은 가능하면 하나의 패키지로 묶어 부분 설치 가능성을 줄인다.
+
+## 5. 설치 후 작업이 필요할 때
+
+파일 복사만으로 충분하면 maintainer script를 만들지 않는다.
+
+캐시 정리, 기존 파일 삭제, systemd 갱신 등이 필요하면 `DEBIAN/postinst`를 추가한다. 스크립트는 여러 번 실행돼도 문제가 없도록 작성한다.
+
+```sh
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    systemctl daemon-reload || true
+    ;;
 esac
+
+exit 0
 ```
 
-## 7. 새 LV2 모듈 추가
-
-새 LV2 bundle을 설치한 뒤 UI가 사용하는 모듈 캐시를 다시 생성한다.
+실행 권한을 준다.
 
 ```bash
-cd /home/debian/UI
-python3 effect_proto_to_js.py
+chmod 0755 "$PKGROOT/DEBIAN/postinst"
 ```
 
-저장소에서는 `digit_ui/` 디렉터리에서 실행한다.
+업데이트 UI가 패키지 설치 후 `sync`와 종료를 수행하므로 `postinst`에서 다시 종료하거나 `overlayroot-chroot`를 실행하지 않는다. 서비스 재시작도 업데이트 도중 UI나 오디오 호스트와 충돌할 수 있으므로, 특별한 이유가 없다면 다음 부팅에 맡긴다.
 
-이 스크립트는 모듈 메타데이터를 읽어 다음 UI 캐시를 생성한다.
+기존 패키지에 없던 파일을 제거해야 한다면 삭제 경로를 명시적으로 관리한다.
+
+```sh
+rm -f /old/obsolete/file
+```
+
+와일드카드나 넓은 디렉터리 삭제는 피한다.
+
+## 6. 새 LV2 모듈을 포함하는 패치
+
+새 LV2 모듈을 추가하거나 UI에 보이는 모듈 정보를 변경했다면 패키지를 만들기 전에 UI 캐시를 다시 생성한다.
+
+```bash
+cd digit_ui
+python3 effect_proto_to_js.py
+cd ..
+```
+
+생성된 파일:
 
 ```text
 digit_ui/qml/module_info.js
 ```
 
-권장 절차:
+패치에는 최소한 다음 변경을 함께 넣는다.
 
-1. LV2 bundle의 URI가 기존 모듈과 충돌하지 않는지 확인한다.
-2. manifest, TTL, binary와 포트 정의를 검증한다.
-3. bundle을 영구 루트의 LV2 검색 경로에 설치한다.
-4. `module_info.py`에 UI 분류와 필요한 메타데이터를 반영한다.
-5. `python3 effect_proto_to_js.py`를 실행한다.
-6. 생성된 `qml/module_info.js`를 함께 커밋한다.
-7. Ingen이 bundle을 탐색하는지 확인한다.
-8. UI에서 추가, 연결, 저장, 재로딩과 삭제를 테스트한다.
-
-개발용 실행 예시:
-
-```bash
-/usr/bin/ingen -e -p 3 -a /home/debian/start_up.ingen
-```
-
-```bash
-cd /home/debian/UI
-export DISPLAY=:0.0
-/usr/bin/python3 show_widget.py
-```
-
-UI를 재시작할 때 Ingen도 함께 정상 종료한 뒤 다시 시작한다.
-
-## 8. 업데이트 매체 구성
-
-업데이트 매체의 루트에는 실행에 필요한 파일이 직접 위치하도록 구성한다.
+- LV2 bundle 전체: binary, `manifest.ttl`, 모듈 TTL과 필요한 리소스
+- 변경된 `digit_ui/module_info.py`
+- 재생성된 `digit_ui/qml/module_info.js`
+- 모듈 전용 UI 파일이 있다면 해당 QML·이미지 리소스
 
 예시:
 
-```text
-/update-media/
-├── manifest.json
-├── checksums.txt
-├── update.sh
-├── packages/
-│   └── *.deb
-├── image/
-│   └── system-image.img.gz
-└── hardware/
-    └── *.dtb
+```bash
+mkdir -p "$PKGROOT/usr/lib/lv2"
+cp -a build/my_module.lv2 "$PKGROOT/usr/lib/lv2/"
+
+install -Dm644 digit_ui/module_info.py \
+  "$PKGROOT/home/debian/UI/module_info.py"
+
+install -Dm644 digit_ui/qml/module_info.js \
+  "$PKGROOT/home/debian/UI/qml/module_info.js"
 ```
 
-업데이트 스크립트는 고정 파일명을 직접 참조하기보다 manifest를 읽어 대상 파일을 결정하는 것이 좋다.
-
-## 9. 로깅과 오류 처리
-
-업데이트 로그는 업데이트 매체와 영구 상태 영역에 모두 기록한다.
-
-로그에 포함할 항목:
-
-- 시작·종료 시각
-- 시작 펌웨어와 대상 펌웨어
-- 하드웨어 revision
-- 선택된 업데이트 경로
-- 검증된 파일과 체크섬
-- 실행한 주요 단계와 종료 코드
-- 기록 대상 장치
-- 실패 원인과 복구 지침
-
-스크립트 기본 설정:
+대상 바이너리를 검사한다.
 
 ```bash
-set -Eeuo pipefail
-trap 'echo "update failed at line $LINENO" >&2' ERR
+file "$PKGROOT/usr/lib/lv2/my_module.lv2/my_module.so"
 ```
 
-예상 가능한 오류는 사용자 메시지를 별도로 제공한다.
+가능하면 동일한 기기 이미지나 sysroot에서 `ldd`를 실행해 누락된 공유 라이브러리가 없는지도 확인한다.
 
-- 업데이트 매체 없음
-- 지원하지 않는 파티션 구조
-- 파일이 잘못된 디렉터리에 있음
-- 체크섬 불일치
-- 지원하지 않는 시작 버전
-- 지원하지 않는 하드웨어 revision
-- 저장 공간 부족
-- 패키지 설치 실패
-- 이미지 기록 실패
+## 7. 패키지 빌드하기
 
-## 10. 검증 체크리스트
+출력 디렉터리를 만들고 패키지를 빌드한다.
 
-### 배포 전
+```bash
+VERSION=1.2.3
+ARCH=arm64
+PKGROOT="update/work/hyperpoly-patch-${VERSION}"
+OUT="update/dist/hyperpoly-patch_${VERSION}_${ARCH}.deb"
 
-- [ ] 업데이트 방식이 변경 범위에 적합하다.
-- [ ] 지원 시작 버전과 하드웨어가 정의되어 있다.
-- [ ] 모든 배포 파일에 SHA-256이 있다.
-- [ ] 업데이트 매체 구조를 자동 검사한다.
-- [ ] 대상 저장 장치 탐지 로직을 실제 장비에서 검증했다.
-- [ ] 사용자 데이터 백업과 복원 절차가 있다.
-- [ ] 전원 중단과 파일 누락 시 동작을 테스트했다.
-- [ ] 복구 이미지 또는 복구 모드가 준비되어 있다.
+mkdir -p update/dist
+fakeroot dpkg-deb --build "$PKGROOT" "$OUT"
+```
 
-### 패키지 업데이트 후
+지원되는 환경에서는 다음 명령을 사용할 수도 있다.
 
-- [ ] `dpkg --audit` 결과가 정상이다.
-- [ ] 실패한 systemd 서비스가 없다.
-- [ ] UI와 오디오가 정상 시작한다.
-- [ ] 프리셋 저장과 불러오기가 정상이다.
-- [ ] 재부팅 후 변경이 유지된다.
+```bash
+dpkg-deb --root-owner-group --build "$PKGROOT" "$OUT"
+```
 
-### 전체 이미지 업데이트 후
+패키지 안의 일반 파일은 기본적으로 `root:root` 소유가 되도록 만든다. 특정 런타임 사용자의 소유권이 반드시 필요한 데이터 파일은 `postinst`에서 정확한 경로만 `chown`한다.
 
-- [ ] 정상 부팅한다.
-- [ ] 부트 파티션과 루트 파일시스템이 예상 구조다.
-- [ ] 제품과 하드웨어 revision이 올바르게 인식된다.
-- [ ] 화면, 터치, 노브, 스위치와 오디오 I/O가 정상이다.
-- [ ] 사용자 데이터가 복원되었다.
-- [ ] 다음 업데이트도 실행할 수 있다.
+## 8. 산출물 검증하기
 
-### LV2 모듈 추가 후
+패키지 메타데이터와 파일 목록을 확인한다.
 
-- [ ] LV2 호스트가 모듈을 탐색한다.
-- [ ] UI 캐시가 재생성되었다.
-- [ ] 모듈이 올바른 카테고리에 표시된다.
-- [ ] 포트 타입과 기본값이 정확하다.
-- [ ] 프리셋 저장·복원과 삭제가 정상이다.
+```bash
+dpkg-deb --info "$OUT"
+dpkg-deb --contents "$OUT"
+```
 
-## 11. 개선 권장사항
+특히 다음을 확인한다.
 
-- manifest 기반 업데이트 형식을 사용한다.
-- 하드코딩된 버전, 이미지명, 크기, 커널명과 장치명을 제거한다.
-- 업데이트 전 dry-run 검사를 제공한다.
-- 파일 번들은 staging 후 원자적으로 교체한다.
-- 패키지와 이미지에 서명 검증을 추가한다.
-- A/B 파티션 또는 snapshot rollback을 도입한다.
-- 하드웨어 매핑은 명시적인 테이블로 관리한다.
-- CI에서 업데이트 매체 생성, 체크섬, 패키지 설치와 부팅 산출물을 자동 검증한다.
+- 경로가 `/home/debian/UI`, `/usr/lib/lv2` 등 실제 설치 위치와 일치하는가
+- 실행 파일과 maintainer script에 실행 권한이 있는가
+- 대상과 다른 CPU 아키텍처의 바이너리가 들어가지 않았는가
+- `module_info.js`가 재생성된 최신 파일인가
+- 불필요한 빌드 파일과 비밀정보가 없는가
 
-## 12. 라이선스
+체크섬도 함께 생성한다.
 
-명시적인 라이선스 헤더가 없는 코드는 프로젝트 안내에 따라 GPL 코드로 취급한다. 다만 저장소와 하위 모듈에는 GPLv2, GPLv3, LGPL, MIT 등 서로 다른 조건의 코드가 포함될 수 있다.
+```bash
+sha256sum "$OUT" > "${OUT}.sha256"
+```
 
-- 기존 파일의 저작권과 라이선스 헤더를 유지한다.
-- 외부 코드를 추가할 때 출처와 라이선스를 기록한다.
-- 생성물과 배포 패키지에 필요한 라이선스 문서를 포함한다.
-- 저장소 전체를 단일 라이선스로 단정하지 않고 파일별 조건을 확인한다.
+테스트용 임시 디렉터리에 풀어 최종 파일 구조를 검토할 수 있다.
+
+```bash
+rm -rf update/test-root
+mkdir -p update/test-root
+dpkg-deb -x "$OUT" update/test-root
+find update/test-root -type f -o -type l
+```
+
+## 9. USB에 넣기
+
+기기가 지원하는 형식의 **단일 파티션 USB**를 준비하고, `.deb` 파일을 압축하지 않은 상태로 USB 최상위 경로에 복사한다.
+
+```text
+USB_ROOT/
+├── hyperpoly-patch_1.2.3_arm64.deb
+└── hyperpoly-patch_1.2.3_arm64.deb.sha256   # 검증·배포용, 설치기는 무시
+```
+
+다음처럼 하위 폴더에 넣으면 현재 UI의 `/usb_flash/*.deb` 검색에 잡히지 않는다.
+
+```text
+USB_ROOT/update/hyperpoly-patch_1.2.3_arm64.deb  # 사용하지 않음
+```
+
+USB를 안전하게 제거하기 전에 동기화한다.
+
+```bash
+sync
+```
+
+## 10. 기기에서 검증하기
+
+릴리스 전 개발 기기에서 최소한 다음을 확인한다.
+
+1. 현재 상태와 사용자 데이터를 백업한다.
+2. 패치 `.deb`를 USB 루트에 넣는다.
+3. 기기의 업데이트 UI에서 업데이트를 실행한다.
+4. 설치 성공 후 기기가 종료되는지 확인한다.
+5. 다시 부팅한 뒤 패키지와 파일을 확인한다.
+
+```bash
+dpkg -s hyperpoly-patch
+dpkg -L hyperpoly-patch
+systemctl --failed
+```
+
+LV2 패치라면 Ingen이 bundle을 발견하는지, UI에서 모듈 추가·연결·저장·재로딩이 되는지 확인한다.
+
+## 11. 배포 체크리스트
+
+- [ ] 기준 버전과 변경 범위가 명확하다.
+- [ ] 패키지 경로가 기기의 실제 설치 경로와 일치한다.
+- [ ] 대상 아키텍처로 빌드한 파일만 포함한다.
+- [ ] 새 LV2 모듈 추가 시 `python3 effect_proto_to_js.py`를 실행했다.
+- [ ] `module_info.py`와 생성된 `qml/module_info.js`를 함께 포함했다.
+- [ ] `dpkg-deb --info`와 `dpkg-deb --contents`를 검토했다.
+- [ ] SHA-256을 생성하고 보관했다.
+- [ ] USB 루트에 `.deb`를 직접 배치했다.
+- [ ] 실제 개발 기기에서 설치와 재부팅 후 동작을 검증했다.
+- [ ] 기존 라이선스 헤더를 유지하고 필요한 GPL·제3자 라이선스 문서를 패키지에 포함했다.
