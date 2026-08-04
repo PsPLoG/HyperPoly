@@ -1,0 +1,93 @@
+diff --git a/module_info.py b/module_info.py
+--- a/module_info.py
++++ b/module_info.py
+@@ -174,6 +174,7 @@ effect_type_maps = {"beebo" : {'ad_env_level': 'http://drobilla.net/plugins/o
+      "strum": 'http://polyeffects.com/lv2/strum',
+      # 'amp_rtneural': 'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-generic',
+      'amp_nam': 'http://github.com/mikeoliphant/neural-amp-modeler-lv2',
++     'amp_namv2': '@NAMV2_PLUGIN_URI@',
+     'midi_pc': 'http://polyeffects.com/lv2/midi_pc',
+     'tonestack': 'http://polyeffects.com/lv2/poly_3_band_eq',
+     'boost': 'http://polyeffects.com/lv2/basic_modular#boost',
+@@ -243,6 +244,16 @@ effect_prototypes_models_all = {
+              'outputs': {'output': ['Output', 'AudioPort']},
+              'tags': {'amps, cabs + gain'},
+              'video_url': 'https://www.youtube.com/watch?v=irBJRf0vHe4&t=60s'},
++ 'amp_namv2': {'category': 0,
++               'controls': {'@NAMV2_INPUT_LEVEL_SYMBOL@': ['Input Lvl', @NAMV2_INPUT_LEVEL_DEFAULT@, @NAMV2_INPUT_LEVEL_MIN@, @NAMV2_INPUT_LEVEL_MAX@],
++                            'ir': ['@NAMV2_DEFAULT_MODEL@', 0, 0, 1],
++                            '@NAMV2_OUTPUT_LEVEL_SYMBOL@': ['Output Lvl', @NAMV2_OUTPUT_LEVEL_DEFAULT@, @NAMV2_OUTPUT_LEVEL_MIN@, @NAMV2_OUTPUT_LEVEL_MAX@]},
++               'description': 'NAMv2 Amp Model Player',
++               'inputs': {'@NAMV2_AUDIO_INPUT_SYMBOL@': ['Input', 'AudioPort']},
++               'long_description': 'A separate NAMv2 LV2 plugin. It shares the NAM capture library but has an independent LV2 URI and preset identity.',
++               'outputs': {'@NAMV2_AUDIO_OUTPUT_SYMBOL@': ['Output', 'AudioPort']},
++               'tags': {'amps, cabs + gain'},
++               'video_url': ''},
+  'attenuverter': {'category': 2,
+                   'controls': {'multiplicand': ['A', 0.5, -1.0, 1.0],
+                                'multiplier': ['B', 0.5, -1.0, 1.0]},
+diff --git a/show_widget.py b/show_widget.py
+--- a/show_widget.py
++++ b/show_widget.py
+@@ -1019,8 +1019,12 @@ class Knobs(QObject):
+         current_effects[effect_id]["controls"]["ir"].name = ir_file
+         if effect_type == "amp_rtneural":
+             ingen_wrapper.set_json(effect_id, ir_file)
+-        else:
++        elif effect_type == "amp_nam":
+             ingen_wrapper.set_json_nam(effect_id, ir_file)
++        elif effect_type == "amp_namv2":
++            ingen_wrapper.set_json_namv2(effect_id, ir_file)
++        else:
++            raise ValueError("update_json called for unsupported effect type: " + effect_type)
+ 
+     @Slot()
+     def ui_load_empty_preset(self, force=False):
+@@ -2141,7 +2145,7 @@ def process_ui_messages():
+                         if current_effects[effect_name]["controls"]["ir"].name != ir_file:
+                             current_effects[effect_name]["controls"]["ir"].name = ir_file
+                             effect_type = current_effects[effect_name]["effect_type"]
+-                            if effect_type in ["amp_rtneural", "amp_nam"]:
++                            if effect_type in ["amp_rtneural", "amp_nam", "amp_namv2"]:
+                                 knobs.update_json(effect_name, urllib.parse.unquote(ir_file))
+                             else:
+                                 knobs.update_ir(effect_name, urllib.parse.unquote(ir_file))
+diff --git a/ingen_wrapper.py b/ingen_wrapper.py
+--- a/ingen_wrapper.py
++++ b/ingen_wrapper.py
+@@ -270,6 +270,21 @@ def set_json_nam(effect_id, file_name):
+     q.put((ingen.set, effect_id, "http://polyeffects.com/lv2/polyconvo#ir", "<"+file_name+">")) # for UI persist
+ 
+ 
++def set_json_namv2(effect_id, file_name):
++    file_name = urllib.parse.quote(file_name)
++    # Persist paths below /audio so presets remain portable across mounts.
++    n = file_name.find("/audio")
++    if n < 0:
++        raise ValueError("NAMv2 model path must be below /audio: " + file_name)
++    file_name = file_name[n:]
++    body = """[
++         a patch:Set ;
++         patch:property <@NAMV2_MODEL_PROPERTY_URI@>;
++         patch:value <file://"""+ file_name + "> ]"
++    q.put((ingen.set, effect_id+"/@NAMV2_PATCH_PORT_SYMBOL@", "http://drobilla.net/ns/ingen#activity", body))
++    q.put((ingen.set, effect_id, "http://polyeffects.com/lv2/polyconvo#ir", "<"+file_name+">"))
++
++
+ def set_file(effect_id, file_name, is_cab, effect_type):
+     effect_id = effect_id
+     file_name = urllib.parse.quote(file_name[len("file://"):])
+diff --git a/qml/PatchBayEffect.qml b/qml/PatchBayEffect.qml
+--- a/qml/PatchBayEffect.qml
++++ b/qml/PatchBayEffect.qml
+@@ -353,8 +353,8 @@ Rectangle {
+-        else if (effect_type == "amp_nam")
++        else if (["amp_nam", "amp_namv2"].indexOf(effect_type) >= 0)
+         {
+             patch_bay.current_help_text = ""
+             patchStack.push("AmpBrowser.qml", {"effect": effect_id,  "effect_type": effect_type,
+-            "top_folder": "file:///audio/amp_nam",
++            "top_folder": "file://@NAMV2_MODEL_ROOT@",
+             // "after_file_selected": (function(name) { 
+             //     // console.log("got new reveb file");
+             //     // console.log("file is", name.toString());
