@@ -85,9 +85,9 @@ def detect_model_properties(ttls: dict[str, str]) -> list[str]:
 def detect_ports(ttls: dict[str, str]) -> list[dict[str, Any]]:
     ports: list[dict[str, Any]] = []
     for relpath, text in ttls.items():
-        # Capture common blank-node LV2 port blocks. This is intentionally
-        # conservative and only reports symbols it can see clearly.
-        blocks = re.findall(r"lv2:port\s*\[(.*?)\]\s*[,;.]", text, flags=re.DOTALL)
+        # Inspect all blank nodes containing lv2:symbol. This handles the common
+        # `lv2:port [ ... ], [ ... ]` syntax where lv2:port is written once.
+        blocks = re.findall(r"\[(.*?)\]", text, flags=re.DOTALL)
         for block in blocks:
             symbol_match = re.search(r'lv2:symbol\s+"([^"]+)"', block)
             if not symbol_match:
@@ -107,7 +107,6 @@ def detect_ports(ttls: dict[str, str]) -> list[dict[str, Any]]:
                     "classes": classes,
                 }
             )
-    # De-duplicate by symbol and direction/type while retaining a source file.
     dedup: dict[tuple[Any, ...], dict[str, Any]] = {}
     for port in ports:
         key = (
@@ -170,6 +169,32 @@ def main() -> int:
     model_properties = detect_model_properties(ttls)
     ports = detect_ports(ttls)
 
+    audio_inputs = [p["symbol"] for p in ports if p["audio"] and p["input"]]
+    audio_outputs = [p["symbol"] for p in ports if p["audio"] and p["output"]]
+    atom_inputs = [p["symbol"] for p in ports if p["atom"] and p["input"]]
+    level_controls = [
+        p
+        for p in ports
+        if p["control"]
+        and p["input"]
+        and (
+            "level" in (p["symbol"] + " " + p["name"]).lower()
+            or "gain" in (p["symbol"] + " " + p["name"]).lower()
+        )
+    ]
+    input_levels = [
+        p["symbol"]
+        for p in level_controls
+        if "input" in (p["symbol"] + " " + p["name"]).lower()
+        or p["symbol"].lower().startswith("in")
+    ]
+    output_levels = [
+        p["symbol"]
+        for p in level_controls
+        if "output" in (p["symbol"] + " " + p["name"]).lower()
+        or p["symbol"].lower().startswith("out")
+    ]
+
     result: dict[str, Any] = {
         "deb": str(deb),
         "package": package_field(deb, "Package"),
@@ -184,6 +209,11 @@ def main() -> int:
         "suggested": {
             "NAMV2_PLUGIN_URI": choose_single(plugin_uris),
             "NAMV2_MODEL_PROPERTY_URI": choose_single(model_properties),
+            "NAMV2_PATCH_PORT_SYMBOL": choose_single(atom_inputs),
+            "NAMV2_AUDIO_INPUT_SYMBOL": choose_single(audio_inputs),
+            "NAMV2_AUDIO_OUTPUT_SYMBOL": choose_single(audio_outputs),
+            "NAMV2_INPUT_LEVEL_SYMBOL": choose_single(input_levels),
+            "NAMV2_OUTPUT_LEVEL_SYMBOL": choose_single(output_levels),
         },
         "checks": {
             "plugin_uri_is_distinct_from_existing_nam": bool(plugin_uris)
