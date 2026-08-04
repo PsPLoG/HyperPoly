@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # NAM and NAMv2 intentionally share the capture library. The plugins remain
+    # separate because they use different LV2 URIs and module IDs.
+    mkdir -p /mnt/audio/amp_nam
+    ;;
+esac
+
+exit 0
