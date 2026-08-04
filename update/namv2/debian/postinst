@@ -3,9 +3,8 @@ set -e
 
 case "$1" in
   configure)
-    # NAM and NAMv2 intentionally share the capture library. The plugins remain
-    # separate because they use different LV2 URIs and module IDs.
-    mkdir -p /mnt/audio/amp_nam
+    # NAMv2 models are intentionally isolated from classic NAM captures.
+    mkdir -p @NAMV2_MODEL_STORAGE_ROOT@
     ;;
 esac
 
