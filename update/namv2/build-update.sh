@@ -10,8 +10,8 @@ Builds a USB-ready directory containing:
   2. a HyperPoly UI integration package
   3. SHA256SUMS
 
-The script refuses to build until NAMv2's distinct LV2 URI and model patch
-property are provided in config.env.
+The script refuses to build until NAMv2's distinct LV2 URI, model patch
+property, ports, default model and separate model-storage paths are provided.
 EOF
 }
 
@@ -41,7 +41,8 @@ required_vars=(
     NAMV2_INPUT_LEVEL_SYMBOL NAMV2_OUTPUT_LEVEL_SYMBOL
     NAMV2_INPUT_LEVEL_DEFAULT NAMV2_INPUT_LEVEL_MIN NAMV2_INPUT_LEVEL_MAX
     NAMV2_OUTPUT_LEVEL_DEFAULT NAMV2_OUTPUT_LEVEL_MIN NAMV2_OUTPUT_LEVEL_MAX
-    NAMV2_DEFAULT_MODEL NAMV2_MODEL_ROOT
+    NAMV2_DEFAULT_MODEL NAMV2_MODEL_ROOT NAMV2_MODEL_STORAGE_ROOT
+    NAMV2_USB_MODEL_FOLDER
 )
 for name in "${required_vars[@]}"; do
     value=${!name:-}
@@ -56,8 +57,28 @@ if [[ "$NAMV2_PLUGIN_URI" == "$OLD_NAM_URI" ]]; then
     echo "NAMv2 must have a distinct LV2 plugin URI; got the existing NAM URI" >&2
     exit 1
 fi
+if [[ "$NAMV2_MODEL_ROOT" == "/audio/amp_nam" || "$NAMV2_MODEL_STORAGE_ROOT" == "/mnt/audio/amp_nam" ]]; then
+    echo "NAMv2 model paths must not reuse the classic NAM model directory" >&2
+    exit 1
+fi
+if [[ "$NAMV2_USB_MODEL_FOLDER" == "amps" || "$NAMV2_USB_MODEL_FOLDER" == */* ]]; then
+    echo "NAMV2_USB_MODEL_FOLDER must be a separate single USB-root folder name" >&2
+    exit 1
+fi
+case "$NAMV2_MODEL_ROOT" in
+    /audio/*) ;;
+    *) echo "NAMV2_MODEL_ROOT must be below /audio" >&2; exit 1 ;;
+esac
+case "$NAMV2_MODEL_STORAGE_ROOT" in
+    /mnt/audio/*) ;;
+    *) echo "NAMV2_MODEL_STORAGE_ROOT must be below /mnt/audio" >&2; exit 1 ;;
+esac
+case "$NAMV2_DEFAULT_MODEL" in
+    "$NAMV2_MODEL_ROOT"/*) ;;
+    *) echo "NAMV2_DEFAULT_MODEL must be below NAMV2_MODEL_ROOT" >&2; exit 1 ;;
+esac
 
-for command in dpkg-deb python3 patch sha256sum realpath; do
+for command in dpkg-deb python3 patch sha256sum realpath grep; do
     command -v "$command" >/dev/null || { echo "required command not found: $command" >&2; exit 1; }
 done
 
@@ -99,8 +120,13 @@ export NAMV2_AUDIO_INPUT_SYMBOL NAMV2_AUDIO_OUTPUT_SYMBOL
 export NAMV2_INPUT_LEVEL_SYMBOL NAMV2_OUTPUT_LEVEL_SYMBOL
 export NAMV2_INPUT_LEVEL_DEFAULT NAMV2_INPUT_LEVEL_MIN NAMV2_INPUT_LEVEL_MAX
 export NAMV2_OUTPUT_LEVEL_DEFAULT NAMV2_OUTPUT_LEVEL_MIN NAMV2_OUTPUT_LEVEL_MAX
-export NAMV2_DEFAULT_MODEL NAMV2_MODEL_ROOT
-python3 - "$SCRIPT_DIR/namv2-ui.patch.in" "$WORK/namv2-ui.patch" <<'PY'
+export NAMV2_DEFAULT_MODEL NAMV2_MODEL_ROOT NAMV2_MODEL_STORAGE_ROOT
+export NAMV2_USB_MODEL_FOLDER
+
+render_patch() {
+    local source=$1
+    local output=$2
+    python3 - "$source" "$output" <<'PY'
 import os
 import sys
 
@@ -112,7 +138,8 @@ keys = [
     "NAMV2_INPUT_LEVEL_SYMBOL", "NAMV2_OUTPUT_LEVEL_SYMBOL",
     "NAMV2_INPUT_LEVEL_DEFAULT", "NAMV2_INPUT_LEVEL_MIN", "NAMV2_INPUT_LEVEL_MAX",
     "NAMV2_OUTPUT_LEVEL_DEFAULT", "NAMV2_OUTPUT_LEVEL_MIN", "NAMV2_OUTPUT_LEVEL_MAX",
-    "NAMV2_DEFAULT_MODEL", "NAMV2_MODEL_ROOT",
+    "NAMV2_DEFAULT_MODEL", "NAMV2_MODEL_ROOT", "NAMV2_MODEL_STORAGE_ROOT",
+    "NAMV2_USB_MODEL_FOLDER",
 ]
 for key in keys:
     value = os.environ[key]
@@ -120,17 +147,32 @@ for key in keys:
         raise SystemExit(f"invalid newline in {key}")
     text = text.replace(f"@{key}@", value)
 if "@NAMV2_" in text:
-    raise SystemExit("unexpanded NAMv2 placeholder remains in patch")
+    raise SystemExit(f"unexpanded NAMv2 placeholder remains in {source}")
 open(output, "w", encoding="utf-8").write(text)
 PY
+}
 
+render_patch "$SCRIPT_DIR/namv2-ui.patch.in" "$WORK/namv2-ui.patch"
+render_patch "$SCRIPT_DIR/namv2-model-storage.patch.in" "$WORK/namv2-model-storage.patch"
+
+patch --dry-run --batch --forward -d "$WORK/ui" -p1 < "$WORK/namv2-ui.patch"
 patch --batch --forward -d "$WORK/ui" -p1 < "$WORK/namv2-ui.patch"
+patch --dry-run --batch --forward -d "$WORK/ui" -p1 < "$WORK/namv2-model-storage.patch"
+patch --batch --forward -d "$WORK/ui" -p1 < "$WORK/namv2-model-storage.patch"
+
 (
     cd "$WORK/ui"
-    python3 -m py_compile module_info.py show_widget.py ingen_wrapper.py effect_proto_to_js.py
+    python3 -m py_compile \
+        module_info.py show_widget.py ingen_wrapper.py amp_browser_model.py \
+        effect_proto_to_js.py
     python3 effect_proto_to_js.py
 )
 grep -q 'amp_namv2' "$WORK/ui/qml/module_info.js"
+grep -q 'set_json_namv2' "$WORK/ui/ingen_wrapper.py"
+grep -q 'ui_copy_amps_v2' "$WORK/ui/show_widget.py"
+grep -q 'set_model_root' "$WORK/ui/amp_browser_model.py"
+grep -q 'file:///audio/amp_nam' "$WORK/ui/qml/PatchBayEffect.qml"
+grep -q "file://$NAMV2_MODEL_ROOT" "$WORK/ui/qml/PatchBayEffect.qml"
 
 PKGROOT="$WORK/ui-package"
 mkdir -p "$PKGROOT/DEBIAN" "$PKGROOT/home/debian/UI/qml"
@@ -138,9 +180,12 @@ install -m 0644 "$WORK/ui/module_info.py" "$PKGROOT/home/debian/UI/module_info.p
 install -m 0644 "$WORK/ui/qml/module_info.js" "$PKGROOT/home/debian/UI/qml/module_info.js"
 install -m 0644 "$WORK/ui/show_widget.py" "$PKGROOT/home/debian/UI/show_widget.py"
 install -m 0644 "$WORK/ui/ingen_wrapper.py" "$PKGROOT/home/debian/UI/ingen_wrapper.py"
+install -m 0644 "$WORK/ui/amp_browser_model.py" "$PKGROOT/home/debian/UI/amp_browser_model.py"
 install -m 0644 "$WORK/ui/qml/PatchBayEffect.qml" "$PKGROOT/home/debian/UI/qml/PatchBayEffect.qml"
+install -m 0644 "$WORK/ui/qml/AmpBrowser.qml" "$PKGROOT/home/debian/UI/qml/AmpBrowser.qml"
+install -m 0644 "$WORK/ui/qml/Settings.qml" "$PKGROOT/home/debian/UI/qml/Settings.qml"
 
-UI_VERSION="${NAMV2_PACKAGE_VERSION}+hyperpoly1"
+UI_VERSION="${NAMV2_PACKAGE_VERSION}+hyperpoly2"
 export UI_VERSION NAMV2_PACKAGE_NAME NAMV2_PACKAGE_VERSION
 python3 - "$SCRIPT_DIR/debian/control.in" "$PKGROOT/DEBIAN/control" <<'PY'
 import os
@@ -152,7 +197,18 @@ for key in ("UI_VERSION", "NAMV2_PACKAGE_NAME", "NAMV2_PACKAGE_VERSION"):
     text = text.replace(f"@{key}@", os.environ[key])
 open(output, "w", encoding="utf-8").write(text)
 PY
-install -m 0755 "$SCRIPT_DIR/debian/postinst" "$PKGROOT/DEBIAN/postinst"
+python3 - "$SCRIPT_DIR/debian/postinst" "$PKGROOT/DEBIAN/postinst" <<'PY'
+import os
+import sys
+
+source, output = sys.argv[1:]
+text = open(source, encoding="utf-8").read()
+text = text.replace("@NAMV2_MODEL_STORAGE_ROOT@", os.environ["NAMV2_MODEL_STORAGE_ROOT"])
+if "@NAMV2_" in text:
+    raise SystemExit("unexpanded NAMv2 placeholder remains in postinst")
+open(output, "w", encoding="utf-8").write(text)
+PY
+chmod 0755 "$PKGROOT/DEBIAN/postinst"
 
 SAFE_VERSION=${UI_VERSION//:/%3a}
 UI_DEB="$USB_OUT/zz-hyperpoly-namv2-ui_${SAFE_VERSION}_all.deb"
@@ -177,3 +233,4 @@ dpkg-deb --contents "$UI_DEB"
 echo
 echo "USB-ready update created at: $USB_OUT"
 echo "Copy both .deb files and SHA256SUMS directly to the USB root."
+echo "Put NAMv2 model files under USB_ROOT/$NAMV2_USB_MODEL_FOLDER before using COPY NAMV2 AMPS."
