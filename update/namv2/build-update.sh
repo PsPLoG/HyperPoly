@@ -61,18 +61,18 @@ if [[ "$NAMV2_MODEL_ROOT" == "/audio/amp_nam" || "$NAMV2_MODEL_STORAGE_ROOT" == 
     echo "NAMv2 model paths must not reuse the classic NAM model directory" >&2
     exit 1
 fi
-if [[ "$NAMV2_USB_MODEL_FOLDER" == "amps" || "$NAMV2_USB_MODEL_FOLDER" == */* ]]; then
-    echo "NAMV2_USB_MODEL_FOLDER must be a separate single USB-root folder name" >&2
+if [[ ! "$NAMV2_USB_MODEL_FOLDER" =~ ^[A-Za-z0-9._-]+$ || "$NAMV2_USB_MODEL_FOLDER" == "amps" ]]; then
+    echo "NAMV2_USB_MODEL_FOLDER must be a separate safe USB-root folder name" >&2
     exit 1
 fi
-case "$NAMV2_MODEL_ROOT" in
-    /audio/*) ;;
-    *) echo "NAMV2_MODEL_ROOT must be below /audio" >&2; exit 1 ;;
-esac
-case "$NAMV2_MODEL_STORAGE_ROOT" in
-    /mnt/audio/*) ;;
-    *) echo "NAMV2_MODEL_STORAGE_ROOT must be below /mnt/audio" >&2; exit 1 ;;
-esac
+if [[ ! "$NAMV2_MODEL_ROOT" =~ ^/audio/[A-Za-z0-9._/-]+$ ]]; then
+    echo "NAMV2_MODEL_ROOT must be a safe path below /audio" >&2
+    exit 1
+fi
+if [[ ! "$NAMV2_MODEL_STORAGE_ROOT" =~ ^/mnt/audio/[A-Za-z0-9._/-]+$ ]]; then
+    echo "NAMV2_MODEL_STORAGE_ROOT must be a safe path below /mnt/audio" >&2
+    exit 1
+fi
 case "$NAMV2_DEFAULT_MODEL" in
     "$NAMV2_MODEL_ROOT"/*) ;;
     *) echo "NAMV2_DEFAULT_MODEL must be below NAMV2_MODEL_ROOT" >&2; exit 1 ;;
