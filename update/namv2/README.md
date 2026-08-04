@@ -55,7 +55,7 @@ $EDITOR config.env
 저장소 루트에서 실행한다.
 
 ```bash
-update/namv2/build-update.sh /path/to/namv2.deb update/namv2/config.env
+bash update/namv2/build-update.sh /path/to/namv2.deb update/namv2/config.env
 ```
 
 빌드 과정:
