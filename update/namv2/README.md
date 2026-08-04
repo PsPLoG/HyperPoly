@@ -106,7 +106,7 @@ USB_ROOT/
 업데이트 후 기기를 다시 부팅하고 설정 화면에서 `COPY NAMv2 AMPS`를 실행한다.
 
 - `COPY AMPS`는 기존 `/usb_flash/amps`만 읽고 `/mnt/audio/amp_nam`에 저장한다.
-- `COPY NAMV2 AMPS`는 `/usb_flash/amps_v2`만 읽고 `/mnt/audio/amp_namv2`에 저장한다.
+- `COPY NAMv2 AMPS`는 `/usb_flash/amps_v2`만 읽고 `/mnt/audio/amp_namv2`에 저장한다.
 - NAMv2 import는 특정 모델 확장자를 필터링하지 않고 폴더의 모든 파일을 복사한다.
 - zip 파일이 있으면 NAMv2 저장소에서 압축을 풀고 zip 원본을 제거한다.
 
@@ -140,7 +140,7 @@ USB_ROOT/
 
 현재 Amp Browser는 각 모델 디렉터리의 `metadata.json`, 이미지와 `file_names` 목록을 사용한다. NAMv2 모델 바이너리의 확장자는 달라도 되지만, 브라우저용 metadata 구조가 기존 형식과 호환되어야 목록과 이미지가 표시된다.
 
-NAMv2가 다른 metadata schema를 사용하거나 raw 모델 파일만 제공한다면 다음 단계로 NAMv2 전용 parser 또는 별도 browser model을 구현해야 한다. 실제 모델 샘플 없이 임의로 schema를 추측하지 않는다.
+NAMv2가 다른 metadata schema를 사용하거나 raw 모델 파일만 제공한다면 NAMv2 전용 parser 또는 별도 browser model이 필요하다. 이 PR은 모델 저장소와 import 버튼을 먼저 분리하며, 실제 NAMv2 모델 샘플 없이 schema를 임의로 추측하지 않는다.
 
 ## 7. 검증
 
