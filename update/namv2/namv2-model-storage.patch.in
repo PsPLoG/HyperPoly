@@ -1,11 +1,7 @@
 diff --git a/amp_browser_model.py b/amp_browser_model.py
 --- a/amp_browser_model.py
 +++ b/amp_browser_model.py
-@@ -18,15 +18,31 @@ current_search = ""
- # start_path = "/git_repos/capture_to_pedal"
- start_path = "/mnt/audio/amp_nam"
- amp_folders  = None #glob.glob(start_path+"/*/metadata.json", recursive=True)
- filtered_amps = None #amp_folders.copy()
+@@ -6,7 +6,23 @@
  favourites = {}
  master_amp_metadata = {}
  
@@ -42,7 +38,7 @@ diff --git a/amp_browser_model.py b/amp_browser_model.py
 +    master_amp_metadata = loaded_metadata
      amp_folders  = sorted(list(master_amp_metadata.keys()), key=lambda v: v.upper())
      filtered_amps = amp_folders.copy()
-@@ -91,6 +106,22 @@ class AmpBrowserModel(QAbstractListModel):
+@@ -91,8 +106,26 @@ class AmpBrowserModel(QAbstractListModel):
      def external_update_reset(self):
          combine_metadata()
          self.clear_filter()
@@ -84,14 +80,14 @@ diff --git a/qml/AmpBrowser.qml b/qml/AmpBrowser.qml
 diff --git a/qml/PatchBayEffect.qml b/qml/PatchBayEffect.qml
 --- a/qml/PatchBayEffect.qml
 +++ b/qml/PatchBayEffect.qml
-@@ -353,18 +353,20 @@ Rectangle {
+@@ -353,13 +353,15 @@ Rectangle {
 -        else if (["amp_nam", "amp_namv2"].indexOf(effect_type) >= 0)
 +        else if (effect_type == "amp_nam")
          {
              patch_bay.current_help_text = ""
              patchStack.push("AmpBrowser.qml", {"effect": effect_id,  "effect_type": effect_type,
 -            "top_folder": "file://@NAMV2_MODEL_ROOT@",
--            // "after_file_selected": (function(name) { 
+-            // "after_file_selected": (function(name) {
 -            //     // console.log("got new reveb file");
 -            //     // console.log("file is", name.toString());
 -            //     knobs.update_json(effect_id, name.toString());
@@ -146,7 +142,7 @@ diff --git a/show_widget.py b/show_widget.py
 diff --git a/qml/Settings.qml b/qml/Settings.qml
 --- a/qml/Settings.qml
 +++ b/qml/Settings.qml
-@@ -365,7 +365,7 @@ Item {
+@@ -365,8 +365,8 @@ Item {
                          font {
                              pixelSize: fontSizeMedium
                          }
@@ -156,7 +152,7 @@ diff --git a/qml/Settings.qml b/qml/Settings.qml
                          width: 600
                          wrapMode: Text.WordWrap
                          textFormat: Text.StyledText
-@@ -387,8 +387,8 @@ Item {
+@@ -387,7 +387,7 @@ Item {
  
                  Column {
 -                    y: 150
