@@ -1,0 +1,272 @@
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+
+<http://polyeffects.com/lv2/euclidean> 
+	a lv2:Plugin ;
+	lv2:symbol "euclidean" ;
+	lv2:microVersion 0 ;
+	lv2:minorVersion 0 ;
+	lv2:optionalFeature lv2:hardRTCapable ;
+	lv2:port [
+		a lv2:CVPort ,
+			lv2:InputPort ;
+		lv2:index 0 ;
+		lv2:name "Back Trigger" ;
+		lv2:portProperty lv2:toggled ;
+		lv2:symbol "back_trigger"
+	] , [
+		a lv2:CVPort ,
+			lv2:InputPort ;
+		lv2:index 1 ;
+		lv2:name "Step Trigger" ;
+		lv2:portProperty lv2:toggled ,
+			<http://lv2plug.in/ns/ext/port-props#trigger> ;
+		lv2:symbol "trigger"
+	] , [
+		a lv2:CVPort ,
+			lv2:InputPort ;
+		lv2:default 0 ;
+		lv2:index 2 ;
+		lv2:maximum 1 ;
+		lv2:minimum 0 ;
+		lv2:name "Reset Trigger" ;
+		lv2:portProperty lv2:toggled ;
+		lv2:symbol "reset"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 3 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 1 Steps" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "steps1"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 4 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 2 Steps" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "steps2"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 5 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 3 Steps" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "steps3"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 6 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 4 Steps" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "steps4"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 7 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 1 beats" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "beats1"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 8 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 2 beats" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "beats2"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 9 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 3 beats" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "beats3"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 4 ;
+		lv2:index 10 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 4 beats" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "beats4"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 0 ;
+		lv2:index 11 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 1 shift" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "shift1"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 0 ;
+		lv2:index 12;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 2 shift" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "shift2"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 0 ;
+		lv2:index 13 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 3 shift" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "shift3"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 0 ;
+		lv2:index 14 ;
+		lv2:maximum 32 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 4 shift" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "shift4"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 1 ;
+		lv2:index 15 ;
+		lv2:maximum 1 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 1 is_enabled" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "is_enabled1"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 1 ;
+		lv2:index 16 ;
+		lv2:maximum 1 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 2 is_enabled" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "is_enabled2"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 1 ;
+		lv2:index 17 ;
+		lv2:maximum 1 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 3 is_enabled" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "is_enabled3"
+	] , [
+		a lv2:ControlPort ,
+			lv2:InputPort ;
+		lv2:default 1 ;
+		lv2:index 18 ;
+		lv2:maximum 1 ;
+		lv2:minimum 0 ;
+		lv2:name "Loop 4 is_enabled" ;
+		lv2:portProperty lv2:integer ;
+		lv2:symbol "is_enabled4"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 19 ;
+		lv2:name "Trigger Out1" ;
+		lv2:symbol "out1"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 20 ;
+		lv2:name "Trigger Out2" ;
+		lv2:symbol "out2"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 21 ;
+		lv2:name "Trigger Out3" ;
+		lv2:symbol "out3"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 22 ;
+		lv2:name "Trigger Out4" ;
+		lv2:symbol "out4"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 23 ;
+		lv2:name "Is The One 1" ;
+		lv2:symbol "is_the_one1"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 24 ;
+		lv2:name "Is The One 2" ;
+		lv2:symbol "is_the_one2"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 25 ;
+		lv2:name "Is The One 3" ;
+		lv2:symbol "is_the_one3"
+	] , [
+		a lv2:CVPort ,
+			lv2:OutputPort ;
+		lv2:index 26 ;
+		lv2:name "Is The One 4" ;
+		lv2:symbol "is_the_one4"
+	] , [
+		a lv2:ControlPort ,
+			lv2:OutputPort ;
+		lv2:index 27 ;
+		lv2:name "current step out 1" ;
+		lv2:symbol "current_step_out_1"
+	] , [
+		a lv2:ControlPort ,
+			lv2:OutputPort ;
+		lv2:index 28 ;
+		lv2:name "current step out_2" ;
+		lv2:symbol "current_step_out_2"
+	] , [
+		a lv2:ControlPort ,
+			lv2:OutputPort ;
+		lv2:index 29 ;
+		lv2:name "current step out_3" ;
+		lv2:symbol "current_step_out_3"
+	] , [
+		a lv2:ControlPort ,
+			lv2:OutputPort ;
+		lv2:index 30 ;
+		lv2:name "current step out_4" ;
+		lv2:symbol "current_step_out_4"
+	] ;
+	doap:name "Poly Euclidean Sequencer" ;
+	lv2:documentation """
+<p>A euclidean sequencer with 4 tracks. A trigger moves to the next step.
+Is The one is triggered on the 1.  </p>
+""" .

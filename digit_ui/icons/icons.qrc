@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>digit/index.theme</file>
+        <file>digit/44x44/md-folder.svg</file>
+        <file>digit/44x44/md-folder-open.svg</file>
+        <file>digit/44x44/add.svg</file>
+        <file>digit/44x44/back.svg</file>
+        <file>digit/44x44/connect.svg</file>
+        <file>digit/44x44/delete.svg</file>
+        <file>digit/44x44/connect.svg</file>
+        <file>digit/44x44/disconnect.svg</file>
+        <file>digit/44x44/help.svg</file>
+        <file>digit/44x44/help-circle.svg</file>
+        <file>digit/44x44/move.svg</file>
+        <file>digit/44x44/save.svg</file>
+        <file>digit/44x44/settings.svg</file>
+        <file>digit/44x44/view.svg</file>
+    </qresource>
+</RCC>

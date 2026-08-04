@@ -1,0 +1,39 @@
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix patch: <http://lv2plug.in/ns/ext/patch#> .
+@prefix ingen: <http://drobilla.net/ns/ingen#> .
+
+<msg0>
+	a patch:Put ;
+	patch:subject <ingen:/main/sub> ;
+	patch:body [
+		a ingen:Graph
+	] .
+
+<msg1>
+	a patch:Put ;
+	patch:subject <ingen:/main/sub/node1> ;
+	patch:body [
+		a ingen:Block ;
+		lv2:prototype <http://lv2plug.in/plugins/eg-amp>
+	] .
+
+<msg2>
+	a patch:Put ;
+	patch:subject <ingen:/main/sub/node2> ;
+	patch:body [
+		a ingen:Block ;
+		lv2:prototype <http://lv2plug.in/plugins/eg-amp>
+	] .
+
+<msg3>
+	a patch:Put ;
+	patch:subject <ingen:/main/> ;
+	patch:body [
+		a ingen:Arc ;
+		ingen:tail <ingen:/main/sub/node1/out> ;
+		ingen:head <ingen:/main/sub/node2/in>
+	] .
+
+<msg4>
+	a patch:Get ;
+	patch:subject <ingen:/main/> .

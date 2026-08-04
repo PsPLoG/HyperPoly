@@ -1,0 +1,46 @@
+Checks: >
+  *,
+  -*-magic-numbers,
+  -*-named-parameter,
+  -*-non-private-member-variables-in-classes,
+  -*-special-member-functions,
+  -abseil-*,
+  -altera-*,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-reserved-identifier,
+  -bugprone-switch-missing-default-case,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-macro-usage,
+  -fuchsia-default-arguments-calls,
+  -fuchsia-default-arguments-declarations,
+  -fuchsia-multiple-inheritance,
+  -fuchsia-overloaded-operator,
+  -google-default-arguments,
+  -google-explicit-constructor,
+  -hicpp-explicit-conversions,
+  -hicpp-signed-bitwise,
+  -llvmlibc-*,
+  -misc-include-cleaner,
+  -misc-unused-parameters,
+  -misc-use-anonymous-namespace,
+  -modernize-use-nodiscard,
+  -modernize-use-trailing-return-type,
+  -performance-enum-size,
+  -readability-avoid-nested-conditional-operator,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+CheckOptions:
+  - key:   cppcoreguidelines-explicit-virtual-functions.AllowOverrideAndFinal
+    value: 'true'
+  - key:   hicpp-uppercase-literal-suffix.NewSuffixes
+    value: 'L;U;UL;ULL'
+  - key:   modernize-use-override.AllowOverrideAndFinal
+    value: 'true'
+  - key:   readability-uppercase-literal-suffix.NewSuffixes
+    value: 'L;U;UL;ULL'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'
+FormatStyle: file

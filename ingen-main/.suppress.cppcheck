@@ -1,0 +1,16 @@
+constParameterPointer
+constParameterReference
+constVariablePointer
+constVariableReference
+cstyleCast
+duplInheritedMember
+duplicateExpression
+knownConditionTrueFalse
+missingReturn
+noExplicitConstructor
+normalCheckLevelMaxBranches
+shadowFunction
+unsafeClassCanLeak
+useStlAlgorithm
+uselessOverride
+virtualCallInConstructor

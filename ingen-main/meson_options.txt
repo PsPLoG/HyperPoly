@@ -1,0 +1,29 @@
+# Copyright 2020-2023 David Robillard <d@drobilla.net>
+# SPDX-License-Identifier: 0BSD OR GPL-3.0-or-later
+
+option('bindings_py', type: 'feature', yield: true,
+       description: 'Build Python bindings')
+
+option('checks', type: 'boolean', value: true, yield: true,
+       description: 'Check for features with the build system')
+
+option('docs', type: 'feature', yield: true,
+       description: 'Build documentation')
+
+option('gui', type: 'feature', yield: true,
+       description: 'Build GUI')
+
+option('jack', type: 'feature', yield: true,
+       description: 'Build JACK audio and MIDI support')
+
+option('lint', type: 'boolean', value: false, yield: true,
+       description: 'Run code quality checks')
+
+option('lv2dir', type: 'string', value: '', yield: true,
+       description: 'LV2 bundle installation directory')
+
+option('portaudio', type: 'feature', yield: true,
+       description: 'Build PortAudio driver')
+
+option('title', type: 'string', value: 'Ingen',
+       description: 'Project title')
