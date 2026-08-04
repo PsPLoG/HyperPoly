@@ -80,14 +80,26 @@ diff --git a/ingen_wrapper.py b/ingen_wrapper.py
 diff --git a/qml/PatchBayEffect.qml b/qml/PatchBayEffect.qml
 --- a/qml/PatchBayEffect.qml
 +++ b/qml/PatchBayEffect.qml
-@@ -353,8 +353,8 @@ Rectangle {
--        else if (effect_type == "amp_nam")
-+        else if (["amp_nam", "amp_namv2"].indexOf(effect_type) >= 0)
+@@ -353,13 +353,22 @@ Rectangle {
+         else if (effect_type == "amp_nam")
          {
              patch_bay.current_help_text = ""
              patchStack.push("AmpBrowser.qml", {"effect": effect_id,  "effect_type": effect_type,
--            "top_folder": "file:///audio/amp_nam",
-+            "top_folder": "file://@NAMV2_MODEL_ROOT@",
+             "top_folder": "file:///audio/amp_nam",
              // "after_file_selected": (function(name) { 
              //     // console.log("got new reveb file");
              //     // console.log("file is", name.toString());
+             //     knobs.update_json(effect_id, name.toString());
+             //     })
+             });
+         }
++        else if (effect_type == "amp_namv2")
++        {
++            patch_bay.current_help_text = ""
++            patchStack.push("AmpBrowser.qml", {"effect": effect_id,  "effect_type": effect_type,
++            "top_folder": "file://@NAMV2_MODEL_ROOT@",
++            // NAMv2 uses its own LV2 URI and model patch property. The current
++            // AmpBrowser model library is shared with amp_nam.
++            });
++        }
+         else if (effect_type == "mono_cab" || effect_type == "short_mono_cab" || effect_type == "stereo_cab" || effect_type == "quad_ir_cab"){
