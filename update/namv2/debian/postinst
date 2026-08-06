@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # NAMv2 models are intentionally isolated from classic NAM captures.
+    mkdir -p @NAMV2_MODEL_STORAGE_ROOT@
+    ;;
+esac
+
+exit 0

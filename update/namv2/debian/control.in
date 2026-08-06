@@ -1,0 +1,9 @@
+Package: hyperpoly-namv2-ui
+Version: @UI_VERSION@
+Section: sound
+Priority: optional
+Architecture: all
+Depends: @NAMV2_PACKAGE_NAME@ (= @NAMV2_PACKAGE_VERSION@)
+Maintainer: HyperPoly Maintainers
+Description: HyperPoly UI integration for the separate NAMv2 LV2 plugin
+ Registers NAMv2 as amp_namv2 without replacing the existing amp_nam module.
